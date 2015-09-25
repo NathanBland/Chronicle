@@ -38,15 +38,25 @@ Enough talk, let's get going.
 In order to get yourself a clean project slate, let's make a project folder and
 repository for you to work in. *I'll be using the name `Chronicle` as my project
 name throughout this guide*
+
 `$ mkdir Chronicle`
+
 Cool, lets hop over to it.
+
 `$ cd Chronicle`
+
 Now let's setup git.
+
 `$ git init`
+
 which should result in something like
+
 `$ Initialized empty Git repository in /home/nathan/Projects/node/chronicle/.git/`
+
 Great. Let's get our node environment setup.
+
 `$ npm init`
+
 This will prompt you with a brief project setup wizard. Most of the default values will be fine, we will change the `entry point` to be `server.js` from `index.js`. Feel free to fill in the author and license as you see fit, for my version, I'm using `MIT` as a license.
 
 Now that your npm is configured you should have a shiny new `package.json` file
