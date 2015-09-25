@@ -22,7 +22,7 @@ This guide makes some assumptions. Those being:
  - That you have [git](https://git-scm.com/) installed
  - That you have [mongoDB](https://www.mongodb.org/) installed
  - That you have a basic working knowledge of `git` and `JavaScript`
- - You have access to a `linux/*nix` environment
+ - You have access to a `linux/*nix` environment *This can be done on a windows system, but some of the commands may be different*
  - You know how to type commands into a terminal
 If you do not meet these requirements, the sites linked above have some great resources to get going.
 
