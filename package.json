@@ -1,0 +1,30 @@
+{
+  "name": "chronicle",
+  "version": "1.0.0",
+  "description": "A repository that aims to instruct the basic building blocks of `node.js`, `express`, `mongodb`, `mongoose`, and authentication with `passport`.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NathanBland/Chronicle.git"
+  },
+  "keywords": [
+    "nodejs",
+    "mongo",
+    "mongodb",
+    "express"
+  ],
+  "author": "Nathan Bland",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/NathanBland/Chronicle/issues"
+  },
+  "homepage": "https://github.com/NathanBland/Chronicle#readme",
+  "dependencies": {
+    "body-parser": "^1.14.0",
+    "express": "^4.13.3",
+    "mongoose": "^4.1.8"
+  }
+}
