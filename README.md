@@ -127,24 +127,35 @@ return simple `json` objects to us. If we are careful, we will be able to use
 this same API later, and won't have to rewrite our code.
 
 Let's get back to the root of our project folder
+
 `$ cd ../`
+
 and now let's make ourselves a server file
+
 `$ touch server.js`
+
 While we are here, let's create a few things we'll use in the future.
+
 `$ mkdir routes`
+
 `$ mkdir -p views/partials`
+
 `$ mkdir public`
 
 While we won't use some of these folders immediately, they will be nice for us
 to have in place as we go along.
 
 Let's install express
+
 `$ npm install --save express`
+
 [Express](http://expressjs.com/) is a web application framework for `node` and
 it is incredibly powerful.
 
 Let's grab something else we want to work with it.
+
 `$ npm install --save body-parser`
+
 Ok, time to open up `server.js` we made just a moment ago.
 
 ```javascript
@@ -180,11 +191,17 @@ The next new bit of code we see is `bodyParser`. This is used to allow specific 
 Last, but not least is our `var server` which is actually what starts up our express server, and selects what port, and ip address to listen on. Again, here we are using values we set earlier, but you could also pass the numbers in manually here.
 
 Let's see if our server starts... *hint: make sure mongod is running first or you will get an error.*
+
 `$ node server.js`
+
 This should produce something like
 `Chronicle has started...`
 or whatever message you put into your `console.log`. If you do that means your application is running without errors! Lets try and talk to it...
+
 `$ curl http://127.0.0.1:8081`
+
 which results in...
+
 `Cannot GET /`
+
 This means our server **is** running, but since we haven't defined any routes for it to use yet, it doesn't know how to answer our request, so it simply returns a default error message.
