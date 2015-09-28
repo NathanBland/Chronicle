@@ -1,30 +1,27 @@
 # Chronicle
-A repository that aims to instruct the basic building blocks of `node.js`, `express`, `mongodb`, `mongoose`, and authentication with `passport`.
+A repository that aims to instruct usage of basic building blocks of `node.js`, `express`, `mongodb`, `mongoose`, and authentication with `passport`.
 
 ## Introduction
-There is a lot going in in the JavaScript world, and a lot of it can be overwhelming to take in.
+There is a lot going on in the JavaScript world, and a lot of it can be overwhelming to take in.
 This repository aims to act as a guide to instruct those who may be new to this wonderful world
 and hopes to advise some best practices along the way.
 
-To do this we will be creating a journal application. It should be able to have
-multiple users, and it should allow each of these users to Create, Read, Update,
-& delete entries, or be a `CRUD` application. It should do this in a RESTful manner.
+To do this we will be creating a journal application. It will have multiple users, and it will allow each of these users to Create, Read, Update, & Delete entries, also known as a `CRUD` application. It should do this in a REST-ful manner.
 
-In order to avoid "throw away" code in this project, we'll begin by doing data
-modeling **first** so that we have something to actually use with our application
-instead of having a boring `hello world` example.
+To create a solid base for this project, we'll start off with data modeling and progress to an API to access that data. This will give us a solid understanding of what we are accessing, and avoid writing code that will be discarded later.
 
 ### Getting Started
 
 #### Prerequisites
 This guide makes some assumptions. Those being:
  - That you have [node.js](https://nodejs.org/en/) & its friend `npm` installed
+  - npm is installed when you install [node.js](https://nodejs.org/en/), but may need to be updated to the most recent version: `npm install npm -g`
  - That you have [git](https://git-scm.com/) installed
- - That you have [mongoDB](https://www.mongodb.org/) installed
+ - That you have [mongoDB](https://www.mongodb.org/) installed and can start and stop its service
  - That you have a basic working knowledge of `git` and `JavaScript`
  - You have access to a `linux/*nix` environment *This can be done on a windows system, but some of the commands may be different*
  - You know how to type commands into a terminal
-If you do not meet these requirements, the sites linked above have some great resources to get going.
+If you are unsure of these setup steps or simply want a refresher, the sites linked above have great resources to get going.
 
 #### Setting It All Up
 The first step is making a repository for your project. While the code is all
@@ -57,15 +54,14 @@ Great. Let's get our node environment setup.
 
 `$ npm init`
 
-This will prompt you with a brief project setup wizard. Most of the default values will be fine, we will change the `entry point` to be `server.js` from `index.js`. Feel free to fill in the author and license as you see fit, for my version, I'm using `MIT` as a license.
+This will prompt you with a brief project setup wizard. Most of the default values will be fine. Hit `enter` or `return` to advance through the wizard. We will change the `entry point` to be `server.js` from `index.js`. Feel free to fill in the author and license as you see fit, for my version, I'm using `MIT` as a license.
 
-Now that your npm is configured you should have a shiny new `package.json` file
+Now that your npm is configured, you have a shiny new `package.json` file
 in your directory. This file is used for all kinds of things, but we will mostly use it to save what packages we want npm to install for us.
 
-Before we start installing things we need to do something crucial, and that is make a `.gitignore` file so that we don't track things with git that we don't need to.
+Before we start installing things we need to do something crucial, and that is make a `.gitignore` file so that we don't track files with git that we don't need to.
 
-The easiest way for us to do this in this project is going to be with an `echo`
-command. You could also create the file and manually type it in if you wished.
+In this project we are going to do this with an `echo` command. You could also create the file and manually type it in if you wished with something like `touch .gitignore`.
 
 To do this, lets run this:
 `$ ehco 'node_modules' > .gitignore`
@@ -73,11 +69,11 @@ This should create the file `.gitignore` for us and place the line `node_modules
 in it. Great! Now we can start installing things.
 
 ##### Installing Mongoose
-In order to start with our data models, we need one other component, and that is [mongoose](http://mongoosejs.com/). Mongoose let's us create schema for `mongoDB` something that is not possible with mongo alone.
+In order to start with our data models, we need one other component, and that is [mongoose](http://mongoosejs.com/). Mongoose let's us create a schema for `mongoDB`, something that is not possible with mongo alone.
 
 Let's try grabbing it with npm.
 `$ npm install --save mongoose`
-This tells npm - which is the **N**node **P**ackage **M**anager - to install **mongoosejs** for us. It also saves `mongoose` as a dependency for our project, which you can see in `package.json`.
+This command tells npm - which is the **N**ode **P**ackage **M**anager - to install **mongoosejs** for us. It also saves `mongoose` as a dependency for our project, which you can see in `package.json`.
 
 ##### Making a User Model
 Now that `mongoose` is done installing, we can start making models.
@@ -110,7 +106,7 @@ why we need it.
 ```javascript
 var mongoose = require('mongoose')
 ```
-This section of code simply tells JavaScript - in this case `node.js` - to include mongoose. This is what allows us to the things mongoose provides. It's like a plugin we are electing to use.
+This section of code simply tells JavaScript - in this case `node.js` - to include mongoose. This is what allows us to the features mongoose provides. It's like a plugin we are electing to use.
 
 ```javascript
 var User = mongoose.Schema({
@@ -120,12 +116,12 @@ var User = mongoose.Schema({
   }
 })
 ```
-There is a lot going on in this little statement. First of all we are creating a new variable `User` and we are telling it to be the result of the function `mongoose.Schema()` which will create the record we want to use with a database. We are then passing in an object - that's the stuff between the `{}`. So we are giving it a property called `username` and saying that it should be a type of `String` and shouldn't be required. Why is that? Mostly for the possibility of other authentication methods, such as twitter, that we will cover later, but it isn't the only useful thing that does for us.
+There is a lot going on in this little statement. First of all we are creating a new variable `User` and we are telling it to be the result of the function `mongoose.Schema()` which will create the record we want to use with a database. We are then passing in an object - that's the stuff between the `{}`. So we are giving it a property called `username` and saying that it will be a type of `String` and isn't required. Why is that? Mostly for the possibility of other authentication methods, such as twitter, that we will cover later, but it isn't the only useful thing that does for us.
 
 ```javascript
 module.exports = mongoose.model('user', User)
 ```
-This last line says what should be accessible from this file when it is used in
+This last line says what will be accessible from this file when it is used in
 something else (like our server). Here we are saying we want to make that `User` schema that we just made available to whatever else includes this file. This way, we can use it later, and not have to make the model in the same file as our other code. It keeps things neat.
 
 We will eventually come back to this file, but now we have something we can work with. Let's start Using it!
@@ -148,15 +144,19 @@ and now let's make ourselves a server file
 $ touch server.js
 ```
 
-While we are here, let's create a few things we'll use in the future.
+While we are here, let's create a few things we'll use in the future. First we'll make a folder to store our route files. This will be the place that we implement access to the data models we make. If this sounds confusing, just hang with me. We'll go over it more when we make the actual routes.
 
 ```
 $ mkdir routes
 ```
 
+Next let's make two directories to store views for our project. The parent folder - `views` - will act as a storehouse for all of our top level views, like `index.html`, `layout.html`, `posts.html`, etc. The `partials` folder will allow us to break up these views into smaller, easier to edit and maintain, pieces.
+
 ```
 $ mkdir -p views/partials
 ```
+
+Now we will make a folder to store our static content. This will be things like `css` files, or client-side `JavaScript` libraries.
 
 ```
 $ mkdir public
@@ -206,7 +206,7 @@ var server = app.listen(app.get('port'), app.get('ip'), function () {
   console.log('Chronicle has started...')
 })
 ```
-By now, at least some of this code should look familiar. The `require()` statements just mean that we are including things that we need to make our app run, `var app = express()` is just setting `app` to be the result of `experss()`. Next up we have something new, and that is `app.set`. Here we are telling express that we want to set different properties - in this case `dbhost` and `dbname` - to equal the next value we provide. It is essentially a key-value store that we are accessing.
+By now, at least some of this code should look familiar. The `require()` statements just mean that we are including files that we need to make our app run, `var app = express()` is just setting `app` to be the result of `experss()`. Next up we have something new, and that is `app.set`. Here we are telling express that we want to set different properties - in this case `dbhost` and `dbname` - to equal the next value we provide. It is essentially a key-value store that we are accessing.
 
 Next up is `mongoose.connect` this is just telling our application where our database lives, and what we want to use as a name for it. This uses the values we setup on the previous lines.
 
@@ -220,7 +220,7 @@ Let's see if our server starts... *hint: make sure mongod is running first or yo
 $ node server.js
 ```
 
-This should produce something like
+This will produce the console message
 `Chronicle has started...`
 or whatever message you put into your `console.log`. If you do that means your application is running without errors! Lets try and talk to it...
 
