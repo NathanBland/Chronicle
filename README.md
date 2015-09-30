@@ -10,7 +10,7 @@ To do this we will be creating a journal application. It will have multiple user
 
 To create a solid base for this project, we'll start off with data modeling and progress to an API to access that data. This will give us a solid understanding of what we are accessing, and avoid writing code that will be discarded later.
 
-### Getting Started
+## Getting Started
 
 #### Prerequisites
 This guide makes some assumptions. Those being:
@@ -74,6 +74,8 @@ In order to start with our data models, we need one other component, and that is
 Let's try grabbing it with npm.
 `$ npm install --save mongoose`
 This command tells npm - which is the **N**ode **P**ackage **M**anager - to install **mongoosejs** for us. It also saves `mongoose` as a dependency for our project, which you can see in `package.json`.
+
+## Cooking With Gas
 
 ##### Making a User Model
 Now that `mongoose` is done installing, we can start making models.
@@ -237,7 +239,7 @@ Cannot GET /
 This means our server **is** running, but since we haven't defined any routes for it to use yet, it doesn't know how to answer our request, so it simply returns a default error message.
 
 #### Routing
-So what can we do about that pesky error message above? Write a route to take care of that path of course! If you remember, we [earlier](#installing-express) created a folder called `routes` that we said would hold all the files for routes in our application. What is a route exactly? It's a path that is attached to a url. Let's use this GitHub repo as an example. The domain that it lives at is `https://github.com`, which by default loads up a route you have now seen, known as `/`. That page is either github's home page, or a user specific dashboard/feed, depending on if you are logged in or not. Now this repository lives at a specific route off of github's primary domain. That route is `/NathanBland/Chronicle`. If you combine this with the primary domain, it looks exactly like the URL in your browser. Github has structured their route so that each repository lives under its creating user. This allows them to make their urls friendly, while still allowing multiple users to have repositories with the same name. Whew, that was a lot. Let's make some routes!
+So what can we do about that pesky error message above? Write a route to take care of that path of course! If you remember, we [earlier](#installing-express) created a folder called `routes` that we said would hold all the files for routes in our application. What is a route exactly? It's a path that is attached to a url. Let's use this GitHub repo as an example. The domain that it lives at is `https://github.com`, which by default loads up a route you have now seen, known as `/`. That page is either github's home page, or a user specific dashboard/feed, depending on if you are logged in or not. Now this repository lives at a specific route off of github's primary domain. That route is `/NathanBland/Chronicle`. If you combine this with the primary domain, it looks exactly like the URL in your browser. Github has structured their route so that each repository lives under its creating user. This allows them to make their urls friendly (human readable), while still allowing multiple users to have repositories with the same name. Whew, that was a lot. Let's make some routes!
 
 ##### File structure
 Now, let's move to that folder called routes, and see what we need to make.
@@ -264,8 +266,7 @@ Since we are working with accessing data right now, we aren't going to be workin
 Open up `index.js`
 
 ```javascript
-var express = require('express')
-exports.setup = function (app) {
+exports.setup = function (app, express) {
   var router = express.Router()
 
   var v1 = require('./api/v1')
@@ -276,7 +277,7 @@ exports.setup = function (app) {
 }
 ```
 
-Awesome. So here we are including express, which is what we use for establishing routes. We then create a function as part of the `exports` object that takes in our express app as a parameter. We declare our `var router` to be one provided by express. Then we say we want to require `./api/v1`. This is saying to look in the current directory, then drill down into api, and then v1 to look for a route file. *We still need to create an index file at that location.* Next, and very importantly, we tell our `router` to `.use` the result of the `v1.setup(app)` function. We also specify a path/route `/api/v1` for it to use. This means that `/api/v1` will now be considered the root for all routes within this directory. This makes our route files cleaner, and easier to maintain. This is a function we still have to build, but it is how we will export our routes from one file to another. *There are several ways to do this, but for the sake of consistency I will use this method throughout the guide.* Next we return our router, which will send it back up to the file - `server.js` in this case - that is including it.
+Awesome. So here we are passing in `app`, and `express`, which we will get from our `server.js` file. We pass these into a function we are creating on the `exports` object. We declare our `var router` to be one provided by express. Then we say we want to require `./api/v1`. This is saying to look in the current directory, then drill down into api, and then v1 to look for a route file. *We still need to create an index file at that location.* Next, and very importantly, we tell our `router` to `.use` the result of the `v1.setup(app, express)` function. We also specify a path/route `/api/v1` for it to use. This means that `/api/v1` will now be considered the root for all routes within this directory. This makes our route files cleaner, and easier to maintain. This is a function we still have to build, but it is how we will export our routes from one file to another. *There are several ways to do this, but for the sake of consistency I will use this method throughout the guide.* Next we return our router, which will send it back up to the file - `server.js` in this case - that is including it.
 
 ###### Creating the API index
 Next we need to establish our API `index.js` file that we already referenced in our primary `index.js` file. To do this, let's head back to command line.
@@ -290,8 +291,7 @@ Let's open up that new file, and write some code. You'll notice this will look v
 *It should be noted that there are many ways you could proceed from here. I'm taking one approach for this project based on an approach to present something consistent. This may not be the best way, but for our application it makes sense.*
 
 ```javascript
-var express = require('express')
-exports.setup = function (app) {
+exports.setup = function (app, express) {
   var router = express.Router()
 
   var users = require('./user')
@@ -314,10 +314,9 @@ $ touch api/v1/user.js
 Let's open that file up. We are going to do this one in sections.
 
 ```javascript
-var express = require('express')
 var User = require('../../../models/User')
 
-exports.setup = function (app) {
+exports.setup = function (app, express) {
   var router = express.Router()
 
   return router
@@ -440,7 +439,7 @@ var routes = require('./routes/')
 Now we can configure our express app to use it. Add a new line above `var server`.
 
 ```javascript
-app.use(routes.setup(app))
+app.use(routes.setup(app, express))
 ```
 
 Save all of your files, its time to test that user.
@@ -480,3 +479,5 @@ which gives us:
 Fantastic! We can now create, and get users!
 
 Next up will be adding journal entries to each user.
+
+###

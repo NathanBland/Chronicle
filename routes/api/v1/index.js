@@ -1,5 +1,4 @@
-var express = require('express')
-exports.setup = function (app) {
+exports.setup = function (app, express) {
   var router = express.Router()
 
   var user = require('./user.js')

@@ -1,7 +1,6 @@
-var express = require('express')
 var User = require('../../../models/User')
 
-exports.setup = function (app) {
+exports.setup = function (app, express) {
   var router = express.Router()
 
   router.route('/')
@@ -67,8 +66,10 @@ exports.setup = function (app) {
       User.findOne({username: username}, '-_id')
         .exec(function (err, user) {
           if (err) {
-            console.warn('err:', err)
+            console.warn('error:', err)
             return res.status(500).json(err)
+          } else if (!user) {
+            return res.status(404).json({'error': 'User not found.'})
           } else {
             return res.status(200).json(user)
           }

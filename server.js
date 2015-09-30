@@ -17,7 +17,7 @@ app.use(bodyParser.urlencoded({
   extended: false
 }))
 
-app.use(routes.setup(app))
+app.use(routes.setup(app, express))
 
 var server = app.listen(app.get('port'), app.get('ip'), function () {
   console.log('Chronicle has started...')
