@@ -6,7 +6,7 @@ There is a lot going on in the JavaScript world, and a lot of it can be overwhel
 This repository aims to act as a guide to instruct those who may be new to this wonderful world
 and hopes to advise some best practices along the way.
 
-To do this we will be creating a journal application. It will have multiple users, and it will allow each of these users to Create, Read, Update, & Delete entries, also known as a `CRUD` application. It should do this in a REST-ful manner.
+To do this we will be creating a journal application. It will have multiple users, and it will allow each of these users to Create, Read, Update, & Delete entries, also known as a `CRUD` application. It will do this in a REST-ful manner.
 
 To create a solid base for this project, we'll start off with data modeling and progress to an API to access that data. This will give us a solid understanding of what we are accessing, and avoid writing code that will be discarded later.
 
@@ -46,7 +46,7 @@ Now let's setup git.
 
 `$ git init`
 
-which should result in something like
+which will result in something like
 
 `$ Initialized empty Git repository in /home/nathan/Projects/node/chronicle/.git/`
 
@@ -65,7 +65,7 @@ In this project we are going to do this with an `echo` command. You could also c
 
 To do this, lets run this:
 `$ ehco 'node_modules' > .gitignore`
-This should create the file `.gitignore` for us and place the line `node_modules`
+This will create the file `.gitignore` for us and place the line `node_modules`
 in it. Great! Now we can start installing things.
 
 ##### Installing Mongoose
@@ -206,7 +206,7 @@ var server = app.listen(app.get('port'), app.get('ip'), function () {
   console.log('Chronicle has started...')
 })
 ```
-By now, at least some of this code should look familiar. The `require()` statements just mean that we are including files that we need to make our app run, `var app = express()` is just setting `app` to be the result of `experss()`. Next up we have something new, and that is `app.set`. Here we are telling express that we want to set different properties - in this case `dbhost` and `dbname` - to equal the next value we provide. It is essentially a key-value store that we are accessing.
+By now, at least some of this code will look familiar. The `require()` statements just mean that we are including files that we need to make our app run, `var app = express()` is just setting `app` to be the result of `experss()`. Next up we have something new, and that is `app.set`. Here we are telling express that we want to set different properties - in this case `dbhost` and `dbname` - to equal the next value we provide. It is essentially a key-value store that we are accessing.
 
 Next up is `mongoose.connect` this is just telling our application where our database lives, and what we want to use as a name for it. This uses the values we setup on the previous lines.
 
@@ -235,3 +235,248 @@ Cannot GET /
 ```
 
 This means our server **is** running, but since we haven't defined any routes for it to use yet, it doesn't know how to answer our request, so it simply returns a default error message.
+
+#### Routing
+So what can we do about that pesky error message above? Write a route to take care of that path of course! If you remember, we [earlier](#installing-express) created a folder called `routes` that we said would hold all the files for routes in our application. What is a route exactly? It's a path that is attached to a url. Let's use this GitHub repo as an example. The domain that it lives at is `https://github.com`, which by default loads up a route you have now seen, known as `/`. That page is either github's home page, or a user specific dashboard/feed, depending on if you are logged in or not. Now this repository lives at a specific route off of github's primary domain. That route is `/NathanBland/Chronicle`. If you combine this with the primary domain, it looks exactly like the URL in your browser. Github has structured their route so that each repository lives under its creating user. This allows them to make their urls friendly, while still allowing multiple users to have repositories with the same name. Whew, that was a lot. Let's make some routes!
+
+##### File structure
+Now, let's move to that folder called routes, and see what we need to make.
+
+```
+$ cd routes/
+```
+
+At present, this directory is empty. Let's change that.
+
+```
+$ touch index.js
+```
+
+We will use this file to easily maintain what routes are being used by the application, and it will make including them in our `server.js` file much easier.
+
+```
+$ mkdir -p api/v1
+```
+
+###### Making our route index
+Since we are working with accessing data right now, we aren't going to be working with a lot of typical front-end visible routes just yet. Creating this folder is basically helping us keep track of our own code, while establishing a method to support older versions of our own system. Now, let's setup our `index.js` file.
+
+Open up `index.js`
+
+```javascript
+var express = require('express')
+exports.setup = function (app) {
+  var router = express.Router()
+
+  var v1 = require('./api/v1')
+
+  router.use('/api/v1', v1.setup(app))
+
+  return router
+}
+```
+
+Awesome. So here we are including express, which is what we use for establishing routes. We then create a function as part of the `exports` object that takes in our express app as a parameter. We declare our `var router` to be one provided by express. Then we say we want to require `./api/v1`. This is saying to look in the current directory, then drill down into api, and then v1 to look for a route file. *We still need to create an index file at that location.* Next, and very importantly, we tell our `router` to `.use` the result of the `v1.setup(app)` function. We also specify a path/route `/api/v1` for it to use. This means that `/api/v1` will now be considered the root for all routes within this directory. This makes our route files cleaner, and easier to maintain. This is a function we still have to build, but it is how we will export our routes from one file to another. *There are several ways to do this, but for the sake of consistency I will use this method throughout the guide.* Next we return our router, which will send it back up to the file - `server.js` in this case - that is including it.
+
+###### Creating the API index
+Next we need to establish our API `index.js` file that we already referenced in our primary `index.js` file. To do this, let's head back to command line.
+
+```
+$ touch api/v1/index.js
+```
+
+Let's open up that new file, and write some code. You'll notice this will look very similar to our previous index, with some minor, but key differences.
+
+*It should be noted that there are many ways you could proceed from here. I'm taking one approach for this project based on an approach to present something consistent. This may not be the best way, but for our application it makes sense.*
+
+```javascript
+var express = require('express')
+exports.setup = function (app) {
+  var router = express.Router()
+
+  var users = require('./user')
+
+  router.use('/user', users.setup(app))
+
+  return router
+}
+```
+
+In this file, we are setting up what resource routes we want to be accessible. Since a user is currently our only resource available, it is the only route we establish. The rest of this file is nearly identical to the previous index.
+
+Now let's make that user file we just required.
+
+##### Making Our User Route
+```
+$ touch api/v1/user.js
+```
+
+Let's open that file up. We are going to do this one in sections.
+
+```javascript
+var express = require('express')
+var User = require('../../../models/User')
+
+exports.setup = function (app) {
+  var router = express.Router()
+
+  return router
+}
+
+```
+
+So far, there isn't a lot of new content here. We are including our user model, including express, and setting up another routing function.
+
+Now place this next section of code *inside* that function, below the `var router` declaration, but before `return router`.
+
+```javascript
+router.route('/')
+  .get(function (req, res, next) {
+    User.find({}, '-_id')
+      .limit(10)
+      .sort({
+        _id: -1
+      })
+      .select({
+        username: 1
+      })
+      .exec(function (err, users) {
+        if (err) {
+          console.warn('err:', err)
+          return res.status(500).json(err)
+        }
+        return res.status(200).json(users)
+      })
+  })
+
+```
+
+Wow. Let's go at this bit by bit. First we are establishing a new route that responds to requests on the `/` route. Remember, because of where we are that is *acutally* `/api/v1/user`. Next, we are saying we want to answer requests to that url that are of the `GET` type. Each of these requests will have three properties that we can use in our routes. Those are `req`, `res`, and `next`. We won't get into `next` a lot in this guide, but it is powerful.
+
+Now, once we have received a `get` request on our route `/` we want to do something with it. Since this is just `/` and there is no username specified we will return a list of users. That's where our `User.find()` comes in. This is a mongoose function, which is what we used to create our database models.
+
+*You can read more about the built in functions of mongoose [here](http://mongoosejs.com/docs/)*
+
+What we do with this statement, is look for all users `user.find({})` and specify that we don't want to return the `_id` property `'-_id'`. Next we limit the amount of results to show to 10, `.limit(10)`, then sort by the `_id` property `.sort({ _id: -1})` this should return them from newest to oldest. After this we state that we really only want to see the `username` property `.select({ username: 1})`. Now we execute the query we have built up `.exec(function (err, users))`. Once we have the results from our database we can return the results to the client that made the request `return res.status(200).json(users)`. This will give the client a status code of `200: OK` and will also return a json document with the results, `users`.
+
+###### Adding a User
+Now, let's add a bit to that. One line below the closing `}` of our `.get` function, we'll add our route that allows us to add a user.
+
+```javascript
+.post(function (req, res, next) {
+  var user = req.body.username
+  if (!user) {
+    return res.status(400).json({
+      'error': 'No Username specified'
+    })
+  }
+  User.findOne({
+    username: user
+  })
+    .exec(function (err, oldUser) {
+      if (err) {
+        console.warn('err:', err)
+        return res.status(500).json(err)
+      }
+      if (oldUser) {
+        console.log('username already exists')
+        return res.status(400).json({
+          'error': 'That username already exists'
+        })
+      } else {
+        var newUser = User()
+        newUser.username = user
+        newUser.save(function (err) {
+          if (err) {
+            console.warn('err:', err)
+            return res.status(500).json(err)
+          } else {
+            return res.status(201).json(newUser)
+          }
+        })
+      }
+    })
+})
+```
+
+You'll notice we do a lot of the same type of operations in this route, as we did on the `.get`. We still look for a user, only this time, we pass in a name to look for. We've also set our route to listen on a `.post` instead of a `.get`. One new bit of code, is the `newuser.save` function we are using. All this is doing, is saving the new user that we have created back to the database, then returning the result to the user. We also have a check above this to see if the username exists in our database already. Normally with mongoose you could do this simply off of a `.save()`, but since we do not have our username set to be unique, that isn't the case. We have done this to allow for future logins from 3rd party providers like twitter, but that isn't in place yet.
+
+Now let's add a route to **only** get the information of one user. We'll add this before our `return router` statement, but after the end of our `.post`.
+
+```javascript
+router.route('/:username')
+  .get(function (req, res, next) {
+    var username = req.params.username
+    if (!username) {
+      return res.status(400).json({
+        'error': 'No Username specified'
+      })
+    }
+    User.findOne({username: username}, '-_id')
+      .exec(function (err, user) {
+        if (err) {
+          console.warn('err:', err)
+          return res.status(500).json(err)
+        } else {
+          return res.status(200).json(user)
+        }
+      })
+  })
+
+```
+
+There is one new addition here, and that is `req.params.username`. This is referencing `/:username` that we define in our route. Again, because of the file we are in, that really is `/api/v1/user/:username`. All that this `username` parameter does, is allow us to put a name into the route and be able to access that value, such as `/api/v1/user/Jimmy`. This would then return the results for the user `Jimmy` if it exists, or return an error.
+
+Now that we have basic routes for the User model defined, we can almost try it out. Before we do, we have to `require` our primary `index.js` file in our `server.js` file.
+
+To do this, let's open up `server.js`:
+
+Just below the `var mongoose` statement, let's include our routes.
+
+```javascript
+var routes = require('./routes/')
+```
+
+Now we can configure our express app to use it. Add a new line above `var server`.
+
+```javascript
+app.use(routes.setup(app))
+```
+
+Save all of your files, its time to test that user.
+
+First let's see what users we have:
+
+```
+$ curl localhost:8081/api/v1/user/
+```
+
+Currently, this returns a blank array, which is fine, we don't have any users yet! Now, add one.
+
+```
+$ curl -H "Content-Type: application/json" -X POST -d '{"username":"Jimmy"}' http://localhost:8081/api/v1/user
+```
+
+This results in a result of
+
+```
+{"__v":0,"username":"Jimmy","_id":"560c2d8ae58168994e6e4af3"}
+```
+
+Your `_id` value will be different, which is fine.
+
+Now let's try and get that user:
+
+```
+$ curl localhost:8081/api/v1/user/Jimmy
+```
+
+which gives us:
+
+```
+{"username":"Jimmy","__v":0}
+```
+
+Fantastic! We can now create, and get users!
+
+Next up will be adding journal entries to each user.
