@@ -271,7 +271,7 @@ exports.setup = function (app, express) {
 
   var v1 = require('./api/v1')
 
-  router.use('/api/v1', v1.setup(app))
+  router.use('/api/v1', v1.setup(app, express))
 
   return router
 }
@@ -296,7 +296,7 @@ exports.setup = function (app, express) {
 
   var users = require('./user')
 
-  router.use('/user', users.setup(app))
+  router.use('/user', users.setup(app, express))
 
   return router
 }
@@ -480,4 +480,523 @@ Fantastic! We can now create, and get users!
 
 Next up will be adding journal entries to each user.
 
-###
+### Journal entries
+Now we need to let our users actually create content. In the context of this project, that means giving the ability to make journal entries, save them, modify them, and delete them, if they so wish. Let's take a quick look at what we will be working with in this section.
+
+Files:
+  - `models/Journal.js`
+    - We will create this file.
+    - Its purpose will be to store journal entries for each user.
+  - `models/User.js`
+    - We will modify this file.
+    - Its purpose will be to create a function to find entries per user.
+  - `routes/api/v1/journal.js`
+    - We will create this file.
+    - Its purpose will be to allow our C.R.U.D. operations on each entry.
+      - `Create`, `Read`, `Update`, `Delete`
+  - `routes/api/v1/index.js`
+    - We will modify this file
+    - This file must have the `journal.js` file added to it so that our application can see the routes.
+
+Now that we have established what we will be working with, let's get to it.
+
+#### Data model
+Given the previous model we created, `User.js`, there won't be very much new code in this model, but what differences there are, I will cover.
+
+Let's make our file. *If you aren't already there, move to the models directory*
+
+```
+$ touch Journal.js
+```
+
+After we make the file, let's open it up.
+
+```javascript
+var mongoose = require('mongoose')
+
+var Journal = mongoose.Schema({
+  title: String,
+  content: String,
+  alias: String,
+  created: {type: Date, default: Date.now},
+  updated: {type: Date, default: Date.now},
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'user',
+    index: true
+  }
+})
+
+module.exports = mongoose.model('journal', Journal)
+
+```
+
+A lot of the code above is similar to the user schema we created previous. Now you may be saying... *What's that funny looking `user_id` property, and what is up with that `default: Date.now` property?* Great Question, I'm glad you asked. the `default: Date.now` simply means that when we create an object we don't have to worry about creating a date to pass into it. All we have to do is make the object, and those values will be populated by our model automatically. As for the `user_id` property, this is what will let us link our user model to our journal model. When we create an entry, we'll pass in the `_id` of a user, which will help us do queries based on user.
+
+Awesome, we have our entries, let's make a way to access them!
+
+Let's open `User.js`
+
+```javascript
+var Journal = require('./Journal')
+//...Snipped
+User.methods.getEntries = function (callback) {
+  return Journal.find({
+    user_id: this._id
+  }, callback)
+}
+```
+
+`var journal` I added right below `var mongoose` and `User.methods` I added after defining the `var User` schema. This function is setup to find all journal entries that match our current user's `_id`. *We won't use this as much until we have authentication in place, but we are adding it now to make our lives easier later.*
+
+Now let's make routes.
+
+#### Routing
+Routing works in a different area than our models, so let's move over there:
+
+```
+$ cd ../routes/api/v1
+```
+
+##### Modifying the API Index
+First we will include our new route in our `index.js` file, so let's open that:
+
+```javascript
+var journal = require('./journal.js')
+//...Snipped
+router.use('/entry', user.setup(app, express))
+```
+
+This is the only code we need to add to this file. I put mine in a similar fashion to how the `user` route was already setup.
+
+Now let's make our new routing file:
+
+```
+$ touch journal.js
+```
+
+Easy enough, now let's open it:
+
+##### Route: `/user/:user`
+Details:
+- Full Path: `/entries/user/:user`
+- Example: `/entries/user/mike`
+- Purpose: Allow creation of new entries for a user, and list existing entries for a user.
+- CRUD methods implemented:
+  - Creation using `post`
+  - Reading using `get`
+  - Update not valid for this path
+  - Delete not valid for this path
+
+```javascript
+var Journal = require('../../../models/Journal')
+var User = require('../../../models/User')
+
+exports.setup = function (app, express) {
+  var router = express.Router()
+  router.route('/user/:user/')
+  .get(function (req, res, next) {
+
+  })
+  .post(function (req, res, next) {
+
+  })
+
+  return router
+}
+
+```
+
+This is what I'm going to start with for this route. You'll notice I include both the `Journal` and `User` models. That's because this route will need access to both.
+
+###### The `get` Route
+Details:
+- Full path: `/entries/user/:user`
+- Example: `/entries/user/mike`
+- Purpose: list all of the entries for that particular user.
+- Restrictions:
+ - Should not function for user `anon`.
+
+
+```javascript
+.get(function (req, res, next) {
+  if (req.params.user === 'anon') {
+    res.status(400).json({
+      'error': 'Not Allowed for anon.'
+    })
+  } else if (req.params.user) {
+    User.findOne({username: req.params.user}, function (err, user) {
+      if (err) {
+        return res.status(400).json({
+          'error': 'Invalid Username specified'
+        })
+      }
+      user.getEntries()
+        .sort('updated')
+        .exec(function (err, entries) {
+          if (err) {
+            return res.status(400).json({
+              'error': 'Internal Server Error'
+            })
+          }
+          return res.status(200).json(entries)
+        })
+    })
+  } else {
+    return res.status(400).json({
+      'error': 'No Username specified'
+    })
+  }
+})
+```
+
+Ok, so a bit of new code here. You can see we look for the user off of what was passed in from the route, if we find one, we then call the function we made earlier to grab all the entries for us. Then we sort by date last updated, and return the list in json format.
+
+###### The `post` Route
+Details:
+- Full path: `/entries/user/:user`
+- Example: `/entries/user/mike`
+- Purpose: list all of the entries for that particular user.
+- Restrictions:
+  - None.
+
+```javascript
+.post(function (req, res, next) {
+  if (!req.body.content || req.body.content === '') {
+    return res.status(400).json({
+      'error': 'Content can not be blank!'
+    })
+  }
+  var entry = new Journal()
+  var alias = ''
+  if (req.body.title) {
+    alias = req.body.title.toLowerCase().replace(' ', '-')
+  } else {
+    alias = new Date().toISOString()
+  }
+  if (req.params.user === 'anon') {
+    console.log('anon detected.')
+    entry.set({
+      title: req.body.title || 'Entry on ' + new Date(),
+      content: req.body.content,
+      alias: alias
+    })
+    entry.save(function (err) {
+      if (err) {
+        return res.status(400).json({
+          'error': 'Internal Server Error'
+        })
+      } else {
+        return res.status(201).json(entry)
+      }
+    })
+  } else if (req.params.user && req.params.user !== '') {
+    User.findOne({username: req.params.user}, function (err, user) {
+      if (err) {
+        return res.status(400).json({
+          'error': 'Invalid username.'
+        })
+      }
+      entry.set({
+        title: req.body.title || 'Entry on ' + new Date(),
+        content: req.body.content,
+        alias: alias,
+        user_id: user._id
+      })
+      entry.save(function (err) {
+        if (err) {
+          return res.status(400).json({
+            'error': 'Internal Server Error'
+          })
+        } else {
+          return res.status(201).json(entry)
+        }
+      })
+    })
+  }
+})
+```
+
+I know, I know. I just gave you a lot of code to chew on. Just hang with me. We start this route out by checking to make sure there is actually some content to save, because we don't want to allow blank entries. After we have made sure of that, we create a new entry. So far so good. Then we check to see if our user was kind enough to set a title, if they weren't, we grumble a little, and make one for them, using a time stamp. We use a safe version of this string as an alias to create a somewhat friendly URL for our user to read.
+
+Next we do a check to see if our user is `anon` or not. If they are (so not logged in) we create our entry without a user_id property, because well, they don't have one. If they do have one, we create that entry with their user_id after going and looking for it. This will be a better process in the UI version of this, but in an API, where authentication is mostly done with a token, we won't have the user object being given to us, so we have to go get it. Right now, we are doing that with the username. After our object is setup, we save it, and return the result back to the client in `json` format. See, it wasn't that bad was it? (Don't answer that)
+
+##### Route: `/user/:user/entry/:entry`
+Details:
+- Full Path: `/entries/user/:user/entry/:entry`
+- Example: `/entries/user/mike/entry/Sunny-day-2015-10-05T19:45:54.788Z`
+- Purpose: Allow reading, updating, and deleting of a specific entry for a user.
+- CRUD methods implemented:
+  - Creation not valid for this path
+  - Reading using `get`
+  - Update using `put`
+  - Delete using `delete`
+
+```javascript
+router.route('/user/:user/entry/:entry')
+  .get(function (req, res, next) {
+
+  })
+  .put(function (req, res, next) {
+
+  })
+  .delete(function (req, res, next) {
+
+  })
+```
+
+Above is the framework for our new route. As you can see, we don't have a `post` method on this route, but we do have a `put` and `delete`.
+
+###### The `get` Route
+Details:
+- Full Path: `/entries/user/:user/entry/:entry`
+- Example: `/entries/user/mike/entry/Sunny-day-2015-10-05T19:45:54.788Z`
+- Purpose: list a single entry for that particular user.
+- Restrictions:
+  - None
+
+```javascript
+router.route('/user/:user/entry/:entry')
+  .get(function (req, res, next) {
+    if (!req.params.user || !req.params.entry) {
+      return res.status(400).json({
+        'error': 'No Username or entry specified'
+      })
+    }
+    if (req.params.user === `anon`) {
+      Journal.findOne({alias: req.params.entry},
+        '-_id',
+         function (err, entry) {
+           if (err) {
+             return res.status(500).json({
+               'error': 'Internal Server error'
+             })
+           }
+           return res.status(200).json(entry)
+         })
+    } else {
+      User.findOne({username: req.params.user}, function (err, user) {
+        if (err) {
+          return res.status(400).json({
+            'error': 'Invalid user'
+          })
+        }
+        Journal.findOne({
+          alias: req.params.entry,
+          user_id: user._id
+        },
+          '-_id',
+           function (err, entry) {
+             if (err) {
+               return res.status(500).json({
+                 'error': 'Internal Server error'
+               })
+             }
+             return res.status(200).json(entry)
+           })
+      })
+    }
+  })
+```
+
+Compared to the `get` route for the list of entries, this is pretty much the same. the only difference is that we look for a specific user_id on each entry, which is a minor change from the previous code, and we are only searching for one entry, instead of multiples.
+
+###### The `put` Route
+Details:
+- Full Path: `/entries/user/:user/entry/:entry`
+- Example: `/entries/user/mike/entry/Sunny-day-2015-10-05T19:45:54.788Z`
+- Purpose: Update a select entry with changes submitted from the client
+- Restrictions:
+  - `anon` does not have permission to use this route.
+
+```javascript
+.put(function (req, res, next) {
+  if (!req.params.user) {
+    return res.status(400).json({
+      'error': 'No user specified!'
+    })
+  }
+  if (!req.body.title && !req.body.content) {
+    return res.status(400).json({
+      'error': 'Title or content required!'
+    })
+  }
+  User.findOne({
+    username: req.params.user
+  }, function (err, user) {
+    if (err) {
+      return res.status(400).json({
+        'error': 'Invalid user'
+      })
+    }
+    var query = { alias: req.params.entry }
+    var obj = {updated: new Date()}
+    if (req.body.title) {
+      obj.title = req.body.title
+    }
+    if (req.body.content) {
+      obj.content = req.body.content
+    }
+    Journal.findOneAndUpdate(query, obj,
+     function (err, entry) {
+       if (err) {
+         return res.status(500).json({
+           'error': 'Internal Server error'
+         })
+       }
+       return res.status(200).json(entry)
+     })
+  })
+})
+
+```
+Some new bits of code in this route include `findOneAndUpdate`, this is documented [here](http://mongoosejs.com/docs/api.html#model_Model.findOneAndUpdate) and is very, very helpful for us. We also carefully create an object with just the properties we know have been submitted, and send those off to be applied as an update to our record.
+
+This is essentially like the `post` route we made for the previous route, but modifies an existing entry, instead of creating a new one.
+
+###### The `delete` Route
+Details:
+- Full Path: `/entries/user/:user/entry/:entry`
+- Example: `/entries/user/mike/entry/Sunny-day-2015-10-05T19:45:54.788Z`
+- Purpose: Deletes a select entry for a user.
+- Restrictions:
+  - `anon` does not have permission to use this route.
+
+```javascript
+.delete(function (req, res, next) {
+  if (!req.params.user) {
+    return res.status(400).json({
+      'error': 'No user specified!'
+    })
+  }
+  User.findOne({
+    username: req.params.user
+  }, function (err, user) {
+    if (err) {
+      return res.status(400).json({
+        'error': 'Invalid user'
+      })
+    }
+    Journal.findOneAndRemove({alias: req.params.entry},
+      function (err, result) {
+        if (err) {
+          return res.status(500).json({
+            'error': 'Internal Server error'
+          })
+        }
+        return res.status(204).json(result)
+      })
+  })
+})
+```
+
+Most of the code in this is the same as in previous routes. Only we don't care about anything other than if there is a user, and the entry alias. We then call `findOneAndRemove` which is documented [here](http://mongoosejs.com/docs/api.html#model_Model.findOneAndRemove) and return the result to the client. The `204` status code indicates that the request was processed successfully, bu there is no content to return.
+
+###### Testing
+At this point our routes should all be working, and we should be able to add some content to a user, or add it anonymously. We've created a lot of code, so let's go through and make sure that it works.
+
+Go to the root directory (`$ cd ../../../`) and then start our server back up:
+
+```
+$ node server.js
+```
+
+Now from another terminal, let's query it. If you need to remember what users you have, or if you have any, run this:
+
+```
+$ curl localhost:8081/api/v1/user/
+```
+
+For me, this returns:
+
+```
+[{"username":"mike"},{"username":"Jimmy"}]
+```
+
+So I have `mike` and `Jimmy` as users.
+
+Let's see if `mike` has any entries:
+
+
+```
+$ curl localhost:8081/api/v1/entry/user/mike
+```
+
+For me, this returns:
+
+```
+[]
+```
+
+Which makes sense, since we just added the ability to create entries.
+
+Speaking of entries, let's make one:
+
+```
+$ curl -H "Content-Type: application/json" -X POST -d '{"title":"Sunny Day", "content": "Just a taste of what is to come"}' http://localhost:8081/api/v1/entry/user/mike
+```
+
+For me, this returns:
+
+```
+{"__v":0,"title":"Sunny Day","content":"Just a taste of what is to come","alias":"sunny-day-2015-10-05T21:39:46.839Z","user_id":"560c4f465a2568a150f76fc1","_id":"5612ee22dd4befdb7870e66d","updated":"2015-10-05T21:39:46.838Z","created":"2015-10-05T21:39:46.837Z"}
+```
+
+So it looks like our creation process works! Let's try to get that entry back using the alias it returned to us: *Remember, your alias will be different from mine*
+
+```
+$ curl http://localhost:8081/api/v1/entry/user/mike/entry/sunny-day-2015-10-05T21:39:46.839Z
+```
+
+For me, this returns:
+
+```
+{"title":"Sunny Day","content":"Just a taste of what is to come","alias":"sunny-day-2015-10-05T21:39:46.839Z","user_id":"560c4f465a2568a150f76fc1","__v":0,"updated":"2015-10-05T21:39:46.838Z","created":"2015-10-05T21:39:46.837Z"}
+```
+
+Which means that it worked! Awesome. Let's try to update that entry.
+
+```
+$ curl -H "Content-Type: application/json" -X PUT -d '{"title":"Cloudy Day"}' http://localhost:8081/api/v1/entry/user/mike/entry/sunny-day-2015-10-05T21:39:46.839Z
+```
+
+For me, this returned:
+
+```
+{"_id":"5612ee22dd4befdb7870e66d","title":"Sunny Day","content":"Just a taste of what is to come","alias":"sunny-day-2015-10-05T21:39:46.839Z","user_id":"560c4f465a2568a150f76fc1","__v":0,"updated":"2015-10-05T22:05:43.790Z","created":"2015-10-05T21:39:46.837Z"}
+```
+
+Which actually looks a little off. Let's try grabbing that record and see what it says:
+
+```
+$ curl http://localhost:8081/api/v1/entry/user/mike/entry/sunny-day-2015-10-05T21:39:46.839Z
+```
+
+For me, this returned:
+
+```
+{"title":"Cloudy Day","content":"Just a taste of what is to come","alias":"sunny-day-2015-10-05T21:39:46.839Z","user_id":"560c4f465a2568a150f76fc1","__v":0,"updated":"2015-10-05T22:05:56.877Z","created":"2015-10-05T21:39:46.837Z"}
+```
+
+So our update DID happen, but the `findOneAndUpdate` did not give us back the new record, it gave us the *old* one back. We will look at addressing this later, as we will probably want to just return a status code acknowledging the change has been made, and not return the new object. However, our code does work, so we will leave it alone. *For Now*
+
+Now let's try to remove that same entry:
+
+```
+$ curl -H "Content-Type: application/json" -X DELETE http://localhost:8081/api/v1/entry/user/mike/entry/sunny-day-2015-10-05T21:39:46.839Z
+```
+
+For me, this returns nothing. Which isn't great for our user experience, however attempting to access the entry again produces this:
+
+```
+$ curl http://localhost:8081/api/v1/entry/user/mike/entry/sunny-day-2015-10-05T21:39:46.839Z
+
+null
+```
+
+So our entry was removed, but we weren't notified.
+
+Try the same tests again, but with `anon` as a user.
+
+
+Next up will be a user interface, then authentication!

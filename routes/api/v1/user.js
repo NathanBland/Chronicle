@@ -42,7 +42,7 @@ exports.setup = function (app, express) {
               'error': 'That username already exists'
             })
           } else {
-            var newUser = User()
+            var newUser = new User()
             newUser.username = user
             newUser.save(function (err) {
               if (err) {
