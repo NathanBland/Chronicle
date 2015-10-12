@@ -7,6 +7,9 @@ var User = mongoose.Schema({
     required: false
   }
 })
+
+User.plugin(require('passport-local-mongoose'))
+
 User.methods.getEntries = function (callback) {
   return Journal.find({
     user_id: this._id

@@ -999,4 +999,122 @@ So our entry was removed, but we weren't notified.
 Try the same tests again, but with `anon` as a user.
 
 
-Next up will be a user interface, then authentication!
+Next up will be authentication, then a user interface!
+
+### Authentication
+Let me just be honest. Usually in creating web applications, authentication is one of the hardest parts. It can be extremely difficult to do well, and it can be even harder once you look at integrating other providers (Facebook, Twitter, Google, etc.). Node.js by itself does not remedy this problem, but it does have a few packages provided by `npm` that make it much, much easier.
+
+Enter [`passport`](http://passportjs.org/). Passport is a library built for node.js that makes authentication so much easier in applications that it can be accomplished in a few short lines. However, we are building an API, and most of passport's authentication strategies - methods of authentication - are built for session based authentication using things like cookies. We would prefer to avoid this if we can because cookies do not work well with API calls. Fortunately for us, there is something called `jwt` or [JSON web tokens](http://jwt.io/). According to `jwt.io` JSON web tokens are described as > JSON Web Tokens are an open, industry standard [RFC 7519](https://tools.ietf.org/html/rfc7519) method for representing claims securely between two parties.
+
+Now that's all fine and good, but what does that actually mean for us? It means that we can authenticate users with a token, originally issued by the server, instead of relying on a cookie. This means that users of the API can pass along this token with their requests and be authenticated just like they had a session. Setting this up can be a bit tricky, but we'll do our best to keep it as simple as possible.
+
+We'll be working with several new files in this section, so if I missed one in this overview, forgive me, open an issue, and I'll fix it.
+
+Files:
+  - `routes/api/v1/index.js`
+    - We will modify this file.
+    - We will do this to add our authentication routes to the application API.
+  - `models/User.js`
+    - We will modify this file.
+    - We will do this to add our authentication routes to the application API.
+  - `routes/api/v1/authentication`
+    - We will create this folder.
+    - Its purpose is to store all the new files for authentication.
+  - `routes/api/v1/authentication/index.js`
+    - We will create this file.
+    - Its purpose will be to index all of our authentication methods.
+  - `routes/api/v1/authentication/local.js`
+    - We will create this file.
+    - Its purpose will be to authenticate local users to our application.
+
+It should be noted that there are many ways to organize your authentication routes. I'm choosing to do by provider, but you could also store strategies in one file, and routes in another. I am using this method to show what routes relate to a particular authentication strategy, as I believe it is a better way to show that relation.
+
+First let's make the folder we will house our authentication files. *You should still be at the root directory of our application at this point.*
+
+```
+$ mkdir routes/api/v1/authentication
+```
+
+Before we get on to making our routes and strategies for our authentication, we need to add our new path to our application index.
+
+open `routes/api/v1/index.js` and add your authentication like you have with entry and user.
+
+```javascript
+var auth = require('./authentication')
+// snipped
+router.use('/auth', auth.setup(app, express))
+
+```
+
+I added mine above the previous entries to ensure authentication is initialized before the rest of the routes.
+
+#### Authentication Strategy
+So what is a authentication strategy? It's a method for authentication. A traditional approach is to use an email and password to login, a newer approach is to use a third party provider (such as twitter) to login the user, and then have that provider return a token of some kind verifying that particular user is who they say they are.
+
+`passport` is what we will be using to setup our strategies, which means we need to install it.
+
+```
+$ npm install --save passport passport-local passport-local-mongoose
+```
+
+Let's quickly go over what each of these contains.
+
+- `passport`
+  - is the base package and contains core components of passport.
+- `passport-local`
+  - contains methods specific to a local strategy (storing a username and password locally)
+- `passport-local-mongoose`
+  - A little plugin that makes our lives much easier in terms of data modeling.
+
+Now let's implement passport in our `User.js` data model.
+
+Open `models/User.js`:
+
+```javascript
+// snipped
+User.plugin(require('passport-local-mongoose'))
+// snipped
+```
+
+That's all. For reference I have mine before the user methods, but you can put it anywhere after the `User` object is defined, as long as it is before `module.exports`.
+
+Now we can safely work in our `authentication` folder, and not have to mess with outside forces (yet).
+
+```
+$ cd routes/api/v1/authentication
+```
+
+Let's make our index:
+
+```
+$ touch index.js
+```
+
+And our basic strategy:
+
+```
+$ touch local.js
+```
+
+Now let's setup our index:
+
+```javascript
+exports.setup = function (app, express) {
+  var router = express.Router()
+
+  var local = require('./local')
+
+  router.use('/local', local.setup(app, express))
+
+  return router
+}
+
+```
+
+This file is looking very familiar at this point. Just including a file we want to be part of our greater application at a specific URL.
+
+Now let's open `local.js`
+
+
+
+.
