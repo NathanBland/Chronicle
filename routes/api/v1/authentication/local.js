@@ -1,5 +1,6 @@
 var passport = require('passport')
 var LocalStrategy = require('passport-local').Strategy
+var AnonymousStrategy = require('passport-anonymous').Strategy
 var BearerStrategy = require('passport-http-bearer').Strategy
 var jwt = require('jwt-simple')
 var tokenSecret = 'a really awful secret'
@@ -15,14 +16,21 @@ exports.setup = function (app, express) {
       try {
         var decoded = jwt.decode(token, tokenSecret)
         console.log(decoded)
-        return done(null, true)
+        User.findById(decoded.id, function (err, user) {
+          if (err) { throw err }
+          if (!user) {
+            return done(null, false)
+          } else {
+            return done(null, user)
+          }
+        })
       } catch (err) {
         return done(null, false)
       }
     }
   ))
   passport.use(new LocalStrategy(User.authenticate()))
-
+  passport.use(new AnonymousStrategy())
   /**
    * Strategy Routes
    */

@@ -35,6 +35,7 @@ exports.setup = function (app, express) {
         })
       }
     })
+    .post(passport.authenticate(['bearer', 'anonymous'], { session: false }))
     .post(function (req, res, next) {
       if (!req.body.content || req.body.content === '') {
         return res.status(400).json({
@@ -65,8 +66,14 @@ exports.setup = function (app, express) {
             return res.status(201).json(entry)
           }
         })
-      } else if (req.params.user && req.params.user !== '') {
-        passport.authenticate('bearer', {session: false})(req, res, next)
+      } else if (req.params.user && req.params.user !== '' && req.user) {
+        console.log('req.user:', req.user)
+        if (req.user.username !== req.params.user) {
+          console.log('req.params.user:', req.params.user)
+          return res.status(401).json({
+            'error': 'Unauthorized'
+          })
+        }
         User.findOne({username: req.params.user}, function (err, user) {
           if (err) {
             return res.status(400).json({
@@ -89,6 +96,10 @@ exports.setup = function (app, express) {
             }
           })
         })
+      } else {
+        return res.status(401).json({
+          'error': 'Unauthorized'
+        })
       }
     })
 
@@ -98,7 +109,7 @@ exports.setup = function (app, express) {
     .get(function (req, res, next) {
       if (!req.params.user || !req.params.entry) {
         return res.status(400).json({
-          'error': 'No Username or entry specified'
+          'error': 'Invalid Username or entry specified'
         })
       }
       if (req.params.user === `anon`) {
@@ -136,9 +147,9 @@ exports.setup = function (app, express) {
       }
     })
     .put(function (req, res, next) {
-      if (!req.params.user) {
+      if (!req.params.user || (req.params.user !== req.user)) {
         return res.status(400).json({
-          'error': 'No user specified!'
+          'error': 'Invalid user specified!'
         })
       }
       if (!req.body.title && !req.body.content) {
@@ -174,9 +185,9 @@ exports.setup = function (app, express) {
       })
     })
     .delete(function (req, res, next) {
-      if (!req.params.user) {
+      if (!req.params.user || (req.params.user !== req.user)) {
         return res.status(400).json({
-          'error': 'No user specified!'
+          'error': 'Invalid user specified!'
         })
       }
       User.findOne({

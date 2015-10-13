@@ -1054,7 +1054,7 @@ So what is a authentication strategy? It's a method for authentication. A tradit
 `passport` is what we will be using to setup our strategies, which means we need to install it. We'll also need something called `jwt-simple` which is a library for using [JSON Web Tokens](http://jwt.io).
 
 ```
-$ npm install --save passport passport-local passport-local-mongoose passport-http-bearer jwt-simple
+$ npm install --save passport passport-local passport-local-mongoose passport-http-bearer passport-anonymous jwt-simple
 ```
 
 Let's quickly go over what each of these contains.
@@ -1067,6 +1067,8 @@ Let's quickly go over what each of these contains.
   - A little plugin that makes our lives much easier in terms of data modeling.
 - `passport-http-bearer`
   - This module will be what we use to verify our tokens.
+- `passport-anonymous`
+  - This module let's us still support anonymous users.
 - `jwt-simple`
   - Library for generating, encoding, and decoding `jwt`.
 
@@ -1132,17 +1134,24 @@ exports.setup = function (app, express) {
     /**
      * Strategy implementation.
      */
-  passport.use(new BearerStrategy(
-    function (token, done) {
-      try {
-        var decoded = jwt.decode(token, tokenSecret)
-        console.log(decoded)
-        return done(null, true)
-      } catch (err) {
-        return done(null, false)
-      }
-    }
-  ))
+   passport.use(new BearerStrategy(
+     function (token, done) {
+       try {
+         var decoded = jwt.decode(token, tokenSecret)
+         console.log(decoded)
+         User.findById(decoded.id, function (err, user) {
+           if (err) { throw err }
+           if (!user) {
+             return done(null, false)
+           } else {
+             return done(null, user)
+           }
+         })
+       } catch (err) {
+         return done(null, false)
+       }
+     }
+   ))
   passport.use(new LocalStrategy(User.authenticate()))
 
   /**
@@ -1212,18 +1221,28 @@ passport.use(new BearerStrategy(
     try {
       var decoded = jwt.decode(token, tokenSecret)
       console.log(decoded)
-      return done(null, true)
+      User.findById(decoded.id, function (err, user) {
+        if (err) { throw err }
+        if (!user) {
+          return done(null, false)
+        } else {
+          return done(null, user)
+        }
+      })
     } catch (err) {
       return done(null, false)
     }
   }
 ))
 passport.use(new LocalStrategy(User.authenticate()))
+passport.use(new AnonymousStrategy())
 ```
 
 Now this *is* new. Ok, first we are establishing a `Bearer` strategy, this is what will authenticate our tokens once we have created them. We are passing it into `passport` so that it knows how to handle that type of authentication.
 
 After this we create a `local` strategy for passport to use as well. This relates to that `passport-local-mongoose` plugin we setup in our user model. This has built in methods to find a user, compare the password hash for us, and return the result. Its pretty neat.
+
+We also include a fallback strategy for our anonymous friends. This let's us allow anonymous users on routes that we also want authentication on.
 
 #### Authentication Routes
 Next up we have two routes. Let's handle the `/register` route first:
@@ -1400,13 +1419,29 @@ For me, this returns the result without error! Awesome!
 ##### Securing POST for entries
 Now what about the pesky fact that a user, that isn't `anon` can create a post under any username they want? We can remedy that!
 
-Starting right after `else if (req.params.user && req.params.user !== '')`:
+Starting right above `.post(function (req, res, next) {` on the `router.route('/user/:user')` route:
 
 ```javascript
-passport.authenticate('bearer', {session: false})(req, res, next)
+.post(passport.authenticate(['bearer', 'anonymous'], { session: false }))
 ```
 
-What we are doing here, is telling passport to try and authenticate the user, and then forward the request on if it is authorized. Otherwise, it dies.
+We also need to slightly modify this `else if (req.params.user && req.params.user !== '') {` to be this:
+
+```javascript
+ else if (req.params.user && req.params.user !== '' && req.user) {
+```
+
+Then at the end of that code block add one more case:
+
+```javascript
+} else {
+  return res.status(401).json({
+    'error': 'Unauthorized'
+  })
+)
+```
+
+What we are doing here, is making sure our `req.user` matches our `req.params.user`. This way we stop someone who is signed in, from creating a post under someone else's name. Yet, we still allow `anon` to create posts. Look at us go!
 
 Now let's try to make an article again without proper permission:
 
@@ -1414,6 +1449,32 @@ Now let's try to make an article again without proper permission:
 $  curl -H "Content-Type: application/json" -X POST -d '{"title":"Test", "content": "Authentication makes things great!"}' http://localhost:8081/api/v1/entry/user/slim
 
 ```
+
+For me, if I try to access this, it returns `{'error': 'Unauthorized'}`
+
+We should also make these adjustments to our `.put` and `.delete` routes. They already have things in place to catch an invalid user, so let's just adjust that if statement a bit:
+
+From:
+```javascript
+if (!req.params.user) {
+  return res.status(400).json({
+    'error': 'No user specified!'
+  })
+}
+```
+
+To:
+```javascript
+if (!req.params.user || (req.params.user !== req.user)) {
+  return res.status(400).json({
+    'error': 'Invalid user specified!'
+  })
+}
+```
+
+Again, this protects us from users who are logged in, but trying to modify a resource that isn't their's.
+
+My goodness, does that mean we are done with authentication? For now, yes it does.
 
 
 
