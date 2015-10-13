@@ -1,5 +1,6 @@
 var Journal = require('../../../models/Journal')
 var User = require('../../../models/User')
+var passport = require('passport')
 
 exports.setup = function (app, express) {
   var router = express.Router()
@@ -65,10 +66,11 @@ exports.setup = function (app, express) {
           }
         })
       } else if (req.params.user && req.params.user !== '') {
+        passport.authenticate('bearer', {session: false})(req, res, next)
         User.findOne({username: req.params.user}, function (err, user) {
           if (err) {
             return res.status(400).json({
-              'error': 'Invalid username.'
+              'error': err
             })
           }
           entry.set({
@@ -91,6 +93,8 @@ exports.setup = function (app, express) {
     })
 
   router.route('/user/:user/entry/:entry')
+    .put(passport.authenticate('bearer', { session: false }))
+    .delete(passport.authenticate('bearer', { session: false }))
     .get(function (req, res, next) {
       if (!req.params.user || !req.params.entry) {
         return res.status(400).json({

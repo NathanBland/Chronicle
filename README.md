@@ -1051,10 +1051,10 @@ I added mine above the previous entries to ensure authentication is initialized 
 #### Authentication Strategy
 So what is a authentication strategy? It's a method for authentication. A traditional approach is to use an email and password to login, a newer approach is to use a third party provider (such as twitter) to login the user, and then have that provider return a token of some kind verifying that particular user is who they say they are.
 
-`passport` is what we will be using to setup our strategies, which means we need to install it.
+`passport` is what we will be using to setup our strategies, which means we need to install it. We'll also need something called `jwt-simple` which is a library for using [JSON Web Tokens](http://jwt.io).
 
 ```
-$ npm install --save passport passport-local passport-local-mongoose
+$ npm install --save passport passport-local passport-local-mongoose passport-http-bearer jwt-simple
 ```
 
 Let's quickly go over what each of these contains.
@@ -1065,6 +1065,10 @@ Let's quickly go over what each of these contains.
   - contains methods specific to a local strategy (storing a username and password locally)
 - `passport-local-mongoose`
   - A little plugin that makes our lives much easier in terms of data modeling.
+- `passport-http-bearer`
+  - This module will be what we use to verify our tokens.
+- `jwt-simple`
+  - Library for generating, encoding, and decoding `jwt`.
 
 Now let's implement passport in our `User.js` data model.
 
@@ -1102,7 +1106,7 @@ Now let's setup our index:
 exports.setup = function (app, express) {
   var router = express.Router()
 
-  var local = require('./local')
+  var local = require('./local.js')
 
   router.use('/local', local.setup(app, express))
 
@@ -1114,6 +1118,302 @@ exports.setup = function (app, express) {
 This file is looking very familiar at this point. Just including a file we want to be part of our greater application at a specific URL.
 
 Now let's open `local.js`
+
+```javascript
+var passport = require('passport')
+var LocalStrategy = require('passport-local').Strategy
+var BearerStrategy = require('passport-http-bearer').Strategy
+var jwt = require('jwt-simple')
+var tokenSecret = 'a really awful secret'
+var User = require('../../../../models/User.js')
+
+exports.setup = function (app, express) {
+  var router = express.Router()
+    /**
+     * Strategy implementation.
+     */
+  passport.use(new BearerStrategy(
+    function (token, done) {
+      try {
+        var decoded = jwt.decode(token, tokenSecret)
+        console.log(decoded)
+        return done(null, true)
+      } catch (err) {
+        return done(null, false)
+      }
+    }
+  ))
+  passport.use(new LocalStrategy(User.authenticate()))
+
+  /**
+   * Strategy Routes
+   */
+  router.post('/register', function (req, res, next) {
+    User.register(new User({
+      username: req.body.username
+    }), req.body.password, function (err, user) {
+      if (err) {
+        return res.status(400).json({
+          'error': err
+        })
+      }
+      passport.authenticate('local', {session: false})(req, res, function () {
+        var token = jwt.encode({
+          id: req.user.id,
+          username: req.user.username},
+          tokenSecret)
+        return res.status(200).json({
+          token: token
+        })
+      })
+    })
+  })
+  router.post('/login',
+    passport.authenticate('local', {
+      session: false
+    }), function (req, res) {
+      var token = jwt.encode({
+        id: req.user.id,
+        username: req.user.username},
+        tokenSecret)
+      return res.status(200).json({
+        token: token
+      })
+    })
+
+  return router
+}
+
+```
+
+This file's contents are pretty new, so let's take time to look at them. First our includes:
+
+```javascript
+var passport = require('passport')
+var LocalStrategy = require('passport-local').Strategy
+var BearerStrategy = require('passport-http-bearer').Strategy
+var jwt = require('jwt-simple')
+var tokenSecret = 'a really awful secret'
+var User = require('../../../../models/User.js')
+
+```
+
+First we grab `passport`, `passport-local`, and `passport-http-bearer`. These make our authentication crazy easy.
+
+Next up is `jwt-simple`, which let's us create those tokens we talked about already. Right after it we create a secret to be used with our token, and then grab our user.
+
+*If we were implementing multiple providers (which we will in the advanced section) we would move the `tokenSecret` to our `index.js` file so that we could share it between those providers while only creating it once.*
+
+The next code `exports.setup` is not new, and I won't cover it.
+
+```javascript
+passport.use(new BearerStrategy(
+  function (token, done) {
+    try {
+      var decoded = jwt.decode(token, tokenSecret)
+      console.log(decoded)
+      return done(null, true)
+    } catch (err) {
+      return done(null, false)
+    }
+  }
+))
+passport.use(new LocalStrategy(User.authenticate()))
+```
+
+Now this *is* new. Ok, first we are establishing a `Bearer` strategy, this is what will authenticate our tokens once we have created them. We are passing it into `passport` so that it knows how to handle that type of authentication.
+
+After this we create a `local` strategy for passport to use as well. This relates to that `passport-local-mongoose` plugin we setup in our user model. This has built in methods to find a user, compare the password hash for us, and return the result. Its pretty neat.
+
+#### Authentication Routes
+Next up we have two routes. Let's handle the `/register` route first:
+
+```javascript
+router.post('/register', function (req, res, next) {
+  User.register(new User({
+    username: req.body.username
+  }), req.body.password, function (err, user) {
+    if (err) {
+      return res.status(400).json({
+        'error': err
+      })
+    }
+    passport.authenticate('local', {session: false})(req, res, function () {
+      var token = jwt.encode({
+        id: req.user.id,
+        username: req.user.username},
+        tokenSecret)
+      return res.status(200).json({
+        token: token
+      })
+    })
+  })
+})
+```
+
+This is like our own user create route we have in `user.js`, but this one expects a password. The `.register` is a built in method given to us by `passport-local-mongoose`. Next we see `passport` really being put to good use. It authenticates our new user for us (how nice of it), sets a session store to `false` (we are using tokens), and returns our authenticated user if there is one. Inside of this, we create a `jwt` token to send to the user. We use the `tokenSecret` we established above, and also pass along the user id, and username. Good for us!
+
+*Later, to make this more secure, we'll also add an expiration date.*
+
+Next we get to our `/login` route.
+
+```javascript
+router.post('/login',
+  passport.authenticate('local', {
+    session: false
+  }), function (req, res) {
+    var token = jwt.encode({
+      id: req.user.id,
+      username: req.user.username},
+      tokenSecret)
+    return res.status(200).json({
+      token: token
+    })
+  })
+
+```
+
+Despite this code appearing to have a lot going on, it doesn't. First we say we want to authenticate with the `local` strategy we defined above. Then we disable sessions because we are using tokens. This is just an option that can be passed in to `passport`. Finally, we give it our callback function. This takes a request, and response, which we name `req` and `res`. Now we create our token using `jwt`, and give the user id, and username to the token body. Remember, passport took care of checking the user details for us already. After we build the token, we pass it back to the user. Great! These routes should now function, meaning you can call them, and get a token back. *Now its important to know that none of our existing users will be able to login, as they dont' have a password hash set.*
+
+#### Testing
+Let's try it out.
+
+```
+$ curl -H "Content-Type: application/json" -X POST -d '{"username":"slim", "password": "sample"}' http://localhost:8081/api/v1/auth/local/register
+```
+
+For me, this returns:
+
+```
+{"token":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjU2MWQ0ODcxNzJhMWI1M2U0ZDMwOWFjYiIsInVzZXJuYW1lIjoic2xpbSJ9.ZQt8iWRf8_OkCBkk5EjrpYzN11pTpD7_0FU8NiarHYc"}
+```
+
+Great so we are getting a token, let's try logging in with that same user:
+
+```
+$ curl -H "Content-Type: application/json" -X POST -d '{"usernme":"slim", "password": "sample"}' http://localhost:8081/api/v1/auth/local/login
+```
+
+Which for me gives:
+
+```
+{"token":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjU2MWQ0ODcxNzJhMWI1M2U0ZDMwOWFjYiIsInVzZXJuYW1lIjoic2xpbSJ9.ZQt8iWRf8_OkCBkk5EjrpYzN11pTpD7_0FU8NiarHYc"}
+```
+
+Fantastic, but what happens if we pass the wrong user, or password?
+
+```
+$ curl -H "Content-Type: application/json" -X POST -d '{"usernme":"sli", "password": "sample"}' http://localhost:8081/api/v1/auth/local/login
+```
+
+```
+Unauthorized
+```
+
+```
+$ curl -H "Content-Type: application/json" -X POST -d '{"usernme":"slim", "password": "sampl"}' http://localhost:8081/api/v1/auth/local/login
+```
+
+```
+Unauthorized
+```
+#### Adding Authentication to Routes
+Looks good.
+
+Now we have the ability to require authentication on *any* of our routes, we simply have to add a bit of code. For example, I don't want the list of users to be public, I can add this (I added this above `router.route('/')`)
+
+```javascript
+router.all('/', passport.authenticate('bearer', { session: false }))
+```
+
+to `routes/api/v1/user.js` in addition to including passport
+```javascript
+var passport = require('passport')
+```
+This makes A user pass in a token on the end of the url, like this:
+
+```
+$ curl localhost:8081/api/v1/user/?access_token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjU2MWQyOGQwMjMwYWY3YmM0YTI0NGU0NCIsInVzZXJuYW1lIjoiaGVyby._xv2oXZFfzs37zHkVqy7LqY0EhuUj9GUQO0P91cRis
+```
+
+If that token is valid, it will return the list.
+
+Suddenly securing our API is very simple, all we have to do is include passport, and reference our authentication method.
+
+Let's move to `routes/api/v1/journal.js`.
+
+Include passport at the top:
+
+```javascript
+var passport = require('passport')
+```
+
+Now let's secure those `put` and `delete` routes.
+
+I'm working right below `router.route('/user/:user/entry/:entry')`
+
+```javascript
+.put(passport.authenticate('bearer', { session: false }))
+.delete(passport.authenticate('bearer', { session: false }))
+// ..Snipped
+```
+
+Done.
+
+##### More Testing
+Let's test it.
+
+First we create an entry for a user:
+
+```
+$ curl -H "Content-Type: application/json" -X POST -d '{"title":"Yay Auth", "content": "Authentication makes things great!"}' http://localhost:8081/api/v1/entry/user/slim
+```
+
+*Notice the current flaw in our system. You can create entries without being logged in for a user that requires a password. We will fix this later.*
+
+```
+$ curl localhost:8081/api/v1/entry/user/slim
+```
+
+Great so we have an entry. Let's try to update it without logging in...
+
+*Remember your alias will be different from mine*
+
+```
+$ curl -H "Content-Type: application/json" -X PUT -d '{"title":"Tokens rock!"}' http://localhost:8081/api/v1/entry/user/mike/entry/yay-auth-2015-10-13T19:01:31.140Z
+```
+
+For me, this returns
+
+```
+Unauthorized
+```
+
+Which is exactly what we want. What happens if we pass our authentication token along side it?
+
+```
+$ curl -H "Content-Type: application/json" -X PUT -d '{"title":"Tokens rock!"}' http://localhost:8081/api/v1/entry/user/mike/entry/yay-auth-2015-10-13T19:01:31.140Z?access_token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjU2MWQ0ODcxNzJhMWI1M2U0ZDMwOWFjYiIsInVzZXJuYW1lIjoic2xpbSJ9.ZQt8iWRf8_OkCBkk5EjrpYzN11pTpD7_0FU8NiarHYc
+```
+
+For me, this returns the result without error! Awesome!
+
+##### Securing POST for entries
+Now what about the pesky fact that a user, that isn't `anon` can create a post under any username they want? We can remedy that!
+
+Starting right after `else if (req.params.user && req.params.user !== '')`:
+
+```javascript
+passport.authenticate('bearer', {session: false})(req, res, next)
+```
+
+What we are doing here, is telling passport to try and authenticate the user, and then forward the request on if it is authorized. Otherwise, it dies.
+
+Now let's try to make an article again without proper permission:
+
+```
+$  curl -H "Content-Type: application/json" -X POST -d '{"title":"Test", "content": "Authentication makes things great!"}' http://localhost:8081/api/v1/entry/user/slim
+
+```
 
 
 

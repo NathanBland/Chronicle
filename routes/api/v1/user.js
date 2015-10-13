@@ -1,8 +1,9 @@
 var User = require('../../../models/User')
+var passport = require('passport')
 
 exports.setup = function (app, express) {
   var router = express.Router()
-
+  router.all('/', passport.authenticate('bearer', { session: false }))
   router.route('/')
     .get(function (req, res, next) {
       User.find({}, '-_id')
