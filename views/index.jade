@@ -3,10 +3,13 @@ extends ./layout.jade
 block header
   h1= title
 block content
-  h2 Welcome to Chronicle
-  .buttons
-    button Sign in
-    button Write
-    button Sign up
+  p.description A simple tool to help your journal your experiences.
+  .landing.buttons
+    a(href='#')
+      button.login Sign in
+    a(href='#')
+      button.write Write
+    a(href='#')
+      button.register Sign up
 block footer 
   p Thanks for taking a look at our service. We hope you'll come back
