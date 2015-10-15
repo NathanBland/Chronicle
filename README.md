@@ -1310,7 +1310,7 @@ For me, this returns:
 Great so we are getting a token, let's try logging in with that same user:
 
 ```
-$ curl -H "Content-Type: application/json" -X POST -d '{"usernme":"slim", "password": "sample"}' http://localhost:8081/api/v1/auth/local/login
+$ curl -H "Content-Type: application/json" -X POST -d '{"username":"slim", "password": "sample"}' http://localhost:8081/api/v1/auth/local/login
 ```
 
 Which for me gives:
@@ -1322,7 +1322,7 @@ Which for me gives:
 Fantastic, but what happens if we pass the wrong user, or password?
 
 ```
-$ curl -H "Content-Type: application/json" -X POST -d '{"usernme":"sli", "password": "sample"}' http://localhost:8081/api/v1/auth/local/login
+$ curl -H "Content-Type: application/json" -X POST -d '{"username":"sli", "password": "sample"}' http://localhost:8081/api/v1/auth/local/login
 ```
 
 ```
@@ -1330,7 +1330,7 @@ Unauthorized
 ```
 
 ```
-$ curl -H "Content-Type: application/json" -X POST -d '{"usernme":"slim", "password": "sampl"}' http://localhost:8081/api/v1/auth/local/login
+$ curl -H "Content-Type: application/json" -X POST -d '{"username":"slim", "password": "sampl"}' http://localhost:8081/api/v1/auth/local/login
 ```
 
 ```
@@ -1540,12 +1540,14 @@ Then, after we configure `bodyParser`, we will configure our templating engine, 
 app.set('view engine', 'jade')
 app.use(
   sass({
-    src: __dirname + '/sass',
-    dest: __dirname + '/public/css',
+    root: __dirname,
+    indentedSyntax: true,
+    src: '/sass',
+    dest: '/public/css',
     prefix: '/css',
     debug: true
   })
- )
+)
 
 app.use(express.static('public'))
 ```

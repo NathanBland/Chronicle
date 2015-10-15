@@ -21,13 +21,14 @@ app.use(bodyParser.urlencoded({
 app.set('view engine', 'jade')
 app.use(
   sass({
-    src: __dirname + '/sass',
-    dest: __dirname + '/public/css',
+    root: __dirname,
+    indentedSyntax: true,
+    src: '/sass',
+    dest: '/public/css',
     prefix: '/css',
     debug: true
   })
- )
-
+)
 app.use(express.static('public'))
 
 app.use(routes.setup(app, express))

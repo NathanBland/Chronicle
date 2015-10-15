@@ -112,7 +112,7 @@ exports.setup = function (app, express) {
           'error': 'Invalid Username or entry specified'
         })
       }
-      if (req.params.user === `anon`) {
+      if (req.params.user === 'anon') {
         Journal.findOne({alias: req.params.entry},
           '-_id',
            function (err, entry) {
