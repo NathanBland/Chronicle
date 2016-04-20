@@ -1479,4 +1479,4 @@ My goodness, does that mean we are done with authentication? For now, yes it doe
 ### User interface
 I am moving interface to its own repository. It is simply too complex to also include in this.
 This will also allow me to seperate the logical api from the view implementation, as is common now. 
-You can view the interface instructions at [chronicle-pug](https://github.com/NathanBland/chronicle-pug) or at [chronicle-react](). These are two very different approaches.
+You can view the interface instructions at [chronicle-pug](https://github.com/NathanBland/chronicle-pug) or at [chronicle-react](https://github.com/NathanBland/chronicle-react#chronicle-react). These are two very different approaches.
